@@ -119,28 +119,259 @@ ADD CONSTRAINT uq_vehicle_types_name UNIQUE (vehicle_types_name),
 ADD CONSTRAINT ck_vehicle_types_desc CHECK (LENGTH(description) > 0);
 
 ALTER TABLE Owners
--- Email must be unique
 ADD CONSTRAINT uq_owner_email UNIQUE (email),
--- Phone must be unique
 ADD CONSTRAINT uq_owner_phone UNIQUE (phone),
--- Gender must be Male or Female
 ADD CONSTRAINT ck_owner_gender CHECK (gender IN (N'Male', N'Female'));
 
 ALTER TABLE Vehicles
--- License plate must be unique
 ADD CONSTRAINT uq_license_plate UNIQUE (lisense_plate);
 
 ALTER TABLE Violation_Types
--- Violation name must be unique
 ADD CONSTRAINT uq_violation_name UNIQUE (violation_name),
--- Penalty must be positive
 ADD CONSTRAINT ck_penalty CHECK (penalty > 0),
--- Default penalty description
 ALTER desciption SET DEFAULT N'No description provided';
 
 ALTER TABLE Violations
--- Status must be one of predefined values
 ADD CONSTRAINT ck_status CHECK (status IN (N'Unpaid', N'Paid', N'Processing')),
--- Default status = 'Unpaid'
 ALTER status SET DEFAULT N'Unpaid';
+
+-- ============================== DAY 1 ========================================
+-- ===== Update ======
+-- 1. Cập nhật email của Owner
+UPDATE Owners
+SET email = 'vana_new@example.com'
+WHERE owner_id = 1;
+
+-- 2. Cập nhật địa chỉ Owner
+UPDATE Owners
+SET address = N'Binh Duong'
+WHERE owner_id = 2;
+
+-- 3. Cập nhật biển số xe
+UPDATE Vehicles
+SET lisense_plate = N'30A-88888'
+WHERE vehicle_id = 1;
+
+-- 4. Cập nhật mức phạt của lỗi "Speeding"
+UPDATE Violation_Types
+SET penalty = 2000000.00
+WHERE violation_name = N'Speeding';
+
+-- 5. Cập nhật trạng thái vi phạm
+UPDATE Violations
+SET status = N'Paid'
+WHERE violation_id = 3;
+
+-- ======== DELETE =========
+-- 1. Xóa 1 vi phạm theo ID
+DELETE FROM Violations
+WHERE violation_id = 10;
+
+-- 2. Xóa 1 loại vi phạm không còn áp dụng
+DELETE FROM Violation_Types
+WHERE violation_name = N'Obstructing Traffic';
+
+-- 3. Xóa 1 xe không còn trong hệ thống
+DELETE FROM Vehicles
+WHERE vehicle_id = 1;
+
+-- 4. Xóa 1 chủ xe đã chuyển nhượng
+DELETE FROM Owners
+WHERE owner_id = 9;
+
+-- 5. Xóa 1 loại phương tiện ít dùng
+DELETE FROM Vehicle_Types
+WHERE vehicle_types_name = N'Bicycle';
+
+
+-- ======== SELECT ========
+SELECT * FROM Owners;
+
+SELECT * FROM Vehicles;
+
+SELECT * FROM Violation_Types;
+
+SELECT * FROM Violations;
+
+SELECT owner_name, email FROM Owners;
+
+SELECT lisense_plate, brand FROM Vehicles;
+
+SELECT violation_name, penalty FROM Violation_Types;
+
+-- Lấy danh sách vi phạm chưa thanh toán
+SELECT violation_id, status FROM Violations
+WHERE status = N'Unpaid';
+
+SELECT * FROM Vehicles
+WHERE year_manufacture > 2020;
+
+SELECT * FROM Owners
+WHERE gender = N'Female';
+
+SELECT * FROM Violations
+WHERE YEAR(violation_date) = 2025;
+
+SELECT * FROM Owners
+WHERE YEAR(birthday) > 1995;
+
+-- Lấy loại "Car"
+SELECT v.* FROM Vehicles v
+JOIN Vehicle_Types vt ON v.vehicle_types_id = vt.vehicle_types_id
+WHERE vt.vehicle_types_name = N'Car';
+
+SELECT * FROM Violation_Types
+WHERE penalty > 1000000;
+
+SELECT owner_name, phone FROM Owners;
+
+-- ========= JOIN ==========
+-- Lấy thông tin xe và tên chủ xe
+SELECT v.lisense_plate, v.brand, o.owner_name, o.phone
+FROM Vehicles v
+JOIN Owners o ON v.owner_id = o.owner_id;
+
+-- Lấy danh sách vi phạm + tên loại vi phạm
+SELECT vl.violation_id, vl.violation_date, vt.violation_name, vt.penalty
+FROM Violations vl
+JOIN Violation_Types vt ON vl.violation_type_id = vt.violation_type_id;
+
+-- Lấy danh sách xe và loại xe
+SELECT v.lisense_plate, v.brand, vt.vehicle_types_name
+FROM Vehicles v
+JOIN Vehicle_Types vt ON v.vehicle_types_id = vt.vehicle_types_id;
+
+-- Lấy danh sách vi phạm, thông tin xe và chủ xe
+SELECT vl.violation_id, o.owner_name, v.lisense_plate, vl.violation_date, vl.status
+FROM Violations vl
+JOIN Vehicles v ON vl.vehicle_id = v.vehicle_id
+JOIN Owners o ON v.owner_id = o.owner_id;
+
+-- Lấy danh sách chủ xe và số lần vi phạm
+SELECT o.owner_name, COUNT(vl.violation_id) AS violation_count
+FROM Owners o
+JOIN Vehicles v ON o.owner_id = v.owner_id
+LEFT JOIN Violations vl ON v.vehicle_id = vl.vehicle_id
+GROUP BY o.owner_name;
+
+-- ================================= DAY 2 ==========================================
+-- ======= View =======
+-- View 1: Vi phạm (biển số, chủ xe, loại vi phạm, mức phạt, trạng thái)
+CREATE VIEW vw_Violations_Detail AS
+SELECT v.lisense_plate, o.owner_name, vt.violation_name, vt.penalty, vl.status
+FROM Violations vl
+JOIN Vehicles v ON vl.vehicle_id = v.vehicle_id
+JOIN Owners o ON v.owner_id = o.owner_id
+JOIN Violation_Types vt ON vl.violation_type_id = vt.violation_type_id;
+
+-- View 2: Xe và tổng số vi phạm
+CREATE VIEW vw_Vehicle_Violation_Count AS
+SELECT v.vehicle_id, v.lisense_plate, COUNT(vl.violation_id) AS total_violations
+FROM Vehicles v
+LEFT JOIN Violations vl ON v.vehicle_id = vl.vehicle_id
+GROUP BY v.vehicle_id, v.lisense_plate;
+
+
+-- ======== INDEX =========
+-- Thường
+EXPLAIN SELECT * FROM Vehicles WHERE lisense_plate = '30A-12345';
+EXPLAIN SELECT * FROM Violations WHERE day(violation_date) > 10;
+
+-- Tạo index
+CREATE INDEX idx_lisense_plate ON Vehicles(lisense_plate);
+EXPLAIN SELECT * FROM Vehicles WHERE lisense_plate = '30A-12345';
+DROP INDEX idx_lisense_plate ON Vehicles;
+
+CREATE INDEX idx_violation_date ON Violations(violation_date);
+EXPLAIN SELECT * FROM Violations WHERE day(violation_date) > 10;
+
+-- =============== Built in function ===========
+-- 1. Danh sách vi phạm xảy ra hôm nay
+SELECT * FROM Violations
+WHERE violation_date = current_date;
+
+-- 2. Tổng số tiền phạt và tổng số lần vi phạm cho mỗi chủ xe
+SELECT o.owner_name,
+       SUM(vt.penalty) AS total_penalty,
+       COUNT(vl.violation_id) AS total_violations
+FROM Owners o
+JOIN Vehicles v ON o.owner_id = v.owner_id
+JOIN Violations vl ON v.vehicle_id = vl.vehicle_id
+JOIN Violation_Types vt ON vl.violation_type_id = vt.violation_type_id
+GROUP BY o.owner_name;
+
+-- =========== User define function =============
+-- Trả về tổng số tiền phạt theo VehicleID
+DELIMITER //
+CREATE FUNCTION fn_TotalPenalty_ByVehicle(vehicleId INT)
+RETURNS DECIMAL(15,2)
+DETERMINISTIC
+BEGIN
+    DECLARE totalPenalty DECIMAL(15,2);
+
+    SELECT IFNULL(SUM(vt.penalty), 0)
+    INTO totalPenalty
+    FROM Violations vl
+    JOIN Violation_Types vt ON vl.violation_type_id = vt.violation_type_id
+    WHERE vl.vehicle_id = vehicleId;
+
+    RETURN totalPenalty;
+END;
+//
+DELIMITER ;
+SELECT fn_TotalPenalty_ByVehicle(1) AS TotalPenalty;
+
+-- ========== STORE PROCEDURE =========
+DELIMITER //
+CREATE PROCEDURE sp_AddViolation (
+    IN p_VehicleID INT,
+    IN p_ViolationTypeID INT,
+    IN p_ViolationDate DATE,
+    IN p_Location VARCHAR(100)
+)
+BEGIN
+    INSERT INTO Violations(vehicle_id, violation_type_id, violation_date, location, status)
+    VALUES (p_VehicleID, p_ViolationTypeID, p_ViolationDate, p_Location, 'Under Review');
+END;
+//
+DELIMITER ;
+CALL sp_AddViolation(1, 2, '2025-09-22', 'Hanoi');
+
+-- ============== TRANSACTION =============
+START TRANSACTION;
+
+-- Thêm chủ xe
+INSERT INTO Owners(owner_name, gender, birthday, email, phone, address)
+VALUES ('Le Van Hieu', 'Male', '1995-02-15', 'hieu@example.com', '0999888777', 'Hue');
+
+-- Lấy ID vừa insert
+SET @NewOwnerID = LAST_INSERT_ID();
+
+-- Thêm xe gắn với chủ xe vừa tạo
+INSERT INTO Vehicles(lisense_plate, vehicle_types_id, owner_id, brand, model, year_manufacture)
+VALUES ('75A-99999', 1, @NewOwnerID, 'Kia', 'Morning', 2023);
+
+COMMIT;
+
+-- ================ SQL INJECTION ==============
+-- giả sử input do người dùng truyền vào (không an toàn)
+SET @plate = "30A-12345' OR '1'='1";
+
+-- kẻ tấn công có thể đổ thêm payload xấu như: 30A-12345'; DROP TABLE Owners; --
+SET @sql = CONCAT('SELECT * FROM Vehicles WHERE lisense_plate = ''', @plate, ''';');
+-- câu query trở thành
+SELECT * FROM Vehicles WHERE lisense_plate = '...'; DROP TABLE Owners; -- ';
+
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+-- an toàn: dùng placeholder ? và truyền giá trị bằng USING
+PREPARE stmt FROM 'SELECT * FROM Vehicles WHERE lisense_plate = ?';
+SET @p1 = '30A-12345';
+EXECUTE stmt USING @p1;
+DEALLOCATE PREPARE stmt;
+
+
+
 
