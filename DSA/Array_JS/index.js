@@ -49,8 +49,26 @@ const moveZeroToStart = (array) => {
 }
 
 const goalSum = (array) => {
-
+    let seen = new Set();
+    for (let num of arr) {
+        let complement = goalSum - num;
+        if (seen.has(complement)) {
+            console.log(`Found pair: (${num}, ${complement})`);
+            return true;
+        }
+        seen.add(num);
+    }
+    return false;
 }
 
+const maxMultiplier = (arr) => {
+    arr.sort((a, b) => a - b);
+    let n = arr.length;
+    return Math.max(arr[0] * arr[1], arr[n - 1] * arr[n - 2]);
+}
+
+console.log(maxMultiplier(array));
+console.log(goalSum(array));
 moveZeroToEnd(array);
 moveZeroToStart(array);
+

@@ -22,7 +22,17 @@ function binarySearch(arr, target) {
     }
     return -1;
 }
+
+function linearSearch(arr, target) {
+    for (let i = 0; i < arr.length; i++) {
+        if (arr[i] === target) {
+            return i;
+        }
+    }
+    return -1;
+}
 // if (binarySearch(array, target) != -1) {
     console.log("Found value at index: ", binarySearch(array, target));
+    console.log("Found value at index: ", linearSearch(array, target));
 // }
 
